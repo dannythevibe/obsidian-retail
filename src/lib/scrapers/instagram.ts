@@ -13,37 +13,17 @@ export interface InstagramPost {
   postUrl: string;
 }
 
-const CHROME_PATH = path.join(
-  process.cwd(),
-  "browsers",
-  "chromium-1217",
-  "chrome-win64",
-  "chrome.exe"
-);
-
-const MAX_POSTS = 12;
-const SCROLL_PAUSE = 1500;
-
-async function imageToBase64(url: string): Promise<{ base64: string; mimeType: string }> {
-  const res = await fetch(url, { headers: { Referer: "https://www.instagram.com/" } });
-  const buffer = await res.arrayBuffer();
-  return {
-    base64: Buffer.from(buffer).toString("base64"),
-    mimeType: res.headers.get("content-type") ?? "image/jpeg",
-  };
+export interface ScrapeResult {
+  posts: InstagramPost[];
+  screenshot?: string; // base64 screenshot of the profile
 }
 
-function extractUsername(profileUrl: string): string {
-  const clean = profileUrl.trim().replace(/\/$/, "");
-  const parts = clean.split("/").filter(Boolean);
-  const idx = parts.findIndex((p) => p.includes("instagram.com"));
-  return idx !== -1 ? parts[idx + 1] : parts[parts.length - 1];
-}
+// ... existing code ...
 
 export async function scrapeInstagramProfile(
   profileUrl: string,
-  onProgress?: (msg: string) => void
-): Promise<InstagramPost[]> {
+  onProgress?: (msg: string, data?: any) => void
+): Promise<ScrapeResult> {
   const username = extractUsername(profileUrl);
   if (!username) throw new Error("Could not extract username from URL");
 
@@ -51,71 +31,56 @@ export async function scrapeInstagramProfile(
 
   const browser = await chromium.launch({
     executablePath: CHROME_PATH,
-    headless: true,
+    headless: false, 
+    slowMo: 500,
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
       "--disable-blink-features=AutomationControlled",
       "--disable-infobars",
-      "--window-size=1280,900",
+      "--window-size=1280,1000",
     ],
   });
 
   const context = await browser.newContext({
     userAgent:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    viewport: { width: 1280, height: 900 },
+    viewport: { width: 1280, height: 1000 },
     locale: "en-US",
     timezoneId: "Africa/Lagos",
-    extraHTTPHeaders: {
-      "Accept-Language": "en-US,en;q=0.9",
-    },
   });
 
-  // Patch webdriver detection
   await context.addInitScript(() => {
     Object.defineProperty(navigator, "webdriver", { get: () => undefined });
-    Object.defineProperty(navigator, "plugins", { get: () => [1, 2, 3, 4, 5] });
-    (window as unknown as Record<string, unknown>).chrome = { runtime: {} };
   });
 
   const page = await context.newPage();
   const posts: InstagramPost[] = [];
+  let profileScreenshot = "";
 
   try {
     onProgress?.("Opening Instagram...");
     await page.goto(`https://www.instagram.com/${username}/`, {
       waitUntil: "domcontentloaded",
-      timeout: 30000,
+      timeout: 60000,
     });
 
-    // Wait a moment for JS to settle
-    await page.waitForTimeout(2500);
+    await page.waitForTimeout(3000);
 
-    // Dismiss login modal if it shows up
+    // Dismiss modals
     try {
-      const modal = page.locator('[role="dialog"]');
-      if (await modal.isVisible({ timeout: 3000 })) {
-        await page.keyboard.press("Escape");
-        await page.waitForTimeout(800);
-      }
-    } catch { /* no modal */ }
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(500);
+    } catch {}
 
-    // Also close "Accept cookies" if it appears
-    try {
-      const acceptBtn = page.getByRole("button", { name: /accept all|allow all|accept/i });
-      if (await acceptBtn.isVisible({ timeout: 2000 })) {
-        await acceptBtn.click();
-        await page.waitForTimeout(500);
-      }
-    } catch { /* no cookie banner */ }
-
-    onProgress?.("Scanning posts...");
+    onProgress?.("Capturing profile layout...");
+    profileScreenshot = await page.screenshot({ type: "jpeg", quality: 60, fullPage: false });
+    onProgress?.("Profile captured. Scanning items...", { screenshot: profileScreenshot.toString("base64") });
 
     // Scroll and collect post links
     const postLinks = new Set<string>();
-    for (let scroll = 0; scroll < 5 && postLinks.size < MAX_POSTS; scroll++) {
+    for (let scroll = 0; scroll < 3 && postLinks.size < MAX_POSTS; scroll++) {
       const links = await page.$$eval(
         'a[href*="/p/"], a[href*="/reel/"]',
         (anchors) => anchors.map((a) => (a as HTMLAnchorElement).href)
@@ -123,18 +88,12 @@ export async function scrapeInstagramProfile(
       links.forEach((l) => postLinks.add(l));
 
       if (postLinks.size < MAX_POSTS) {
-        await page.evaluate(() => window.scrollBy(0, window.innerHeight * 2));
-        await page.waitForTimeout(SCROLL_PAUSE);
+        await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+        await page.waitForTimeout(1000);
       }
     }
 
     const uniqueLinks = Array.from(postLinks).slice(0, MAX_POSTS);
-
-    if (uniqueLinks.length === 0) {
-      throw new Error(`No posts found for @${username}. Account may be private or empty.`);
-    }
-
-    onProgress?.(`Found ${uniqueLinks.length} posts. Reading content...`);
 
     for (let i = 0; i < uniqueLinks.length; i++) {
       const postUrl = uniqueLinks[i];
@@ -142,62 +101,30 @@ export async function scrapeInstagramProfile(
 
       try {
         await page.goto(postUrl, { waitUntil: "domcontentloaded", timeout: 20000 });
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1000);
 
-        // Dismiss modal on post page too
-        try {
-          const modal = page.locator('[role="dialog"]');
-          if (await modal.isVisible({ timeout: 1500 })) {
-            await page.keyboard.press("Escape");
-          }
-        } catch { /* no modal */ }
-
-        // Extract image
         const imageUrl = await page.evaluate(() => {
           const imgs = Array.from(document.querySelectorAll("article img"));
-          const main = imgs.find(
-            (img) =>
-              (img as HTMLImageElement).src.includes("cdninstagram") ||
-              (img as HTMLImageElement).src.includes("fbcdn")
-          );
+          const main = imgs.find((img) => (img as HTMLImageElement).src.includes("cdninstagram") || (img as HTMLImageElement).src.includes("fbcdn"));
           return (main as HTMLImageElement)?.src ?? "";
         });
 
-        // Extract caption
         const caption = await page.evaluate(() => {
-          const candidates = [
-            document.querySelector("h1"),
-            document.querySelector('article div[class] span'),
-            document.querySelector('meta[property="og:description"]'),
-          ];
-          for (const el of candidates) {
-            if (!el) continue;
-            const text = el instanceof HTMLMetaElement
-              ? el.content
-              : el.textContent?.trim();
-            if (text && text.length > 3) return text;
-          }
-          return "";
+          const el = document.querySelector("h1") || document.querySelector('article div span');
+          return el?.textContent?.trim() || "";
         });
 
         if (imageUrl) {
-          onProgress?.(`Downloading image ${i + 1}...`);
           const { base64, mimeType } = await imageToBase64(imageUrl);
           posts.push({ imageUrl, imageBase64: base64, mimeType, caption, postUrl });
         }
-      } catch {
-        // Skip failed posts
-      }
+      } catch {}
     }
   } finally {
     await browser.close();
   }
 
-  if (posts.length === 0) {
-    throw new Error("Could not read any posts. The account may be private.");
-  }
-
-  return posts;
+  return { posts, screenshot: profileScreenshot ? Buffer.from(profileScreenshot).toString("base64") : undefined };
 }
 
 // Keep oEmbed fallback for individual post links

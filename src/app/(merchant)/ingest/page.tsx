@@ -8,20 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { formatNaira } from "@/lib/utils";
-import { Link, Upload, Check, AlertCircle, Loader2 } from "lucide-react";
+import { Link, Upload, Check, AlertCircle, Loader2, Plus, PenLine } from "lucide-react";
+import { ProductCard } from "@/components/merchant/product-card";
 const Instagram = Link;
 
 type Source = "instagram" | "upload";
 
 interface ScannedProduct {
-  id?: string;
+  id: string;
   name: string;
   price: number;
   category: string;
   image_url: string;
   in_stock: boolean;
   ai_confidence: number;
-  reviews?: number;
+  approved: boolean;
+  sales_count: number;
   status: "done" | "error";
   error?: string;
 }
@@ -30,7 +32,7 @@ interface StreamEvent {
   type: "start" | "product" | "error" | "done" | "status" | "fatal";
   total?: number;
   index?: number;
-  product?: Omit<ScannedProduct, "status">;
+  product?: Partial<ScannedProduct>;
   message?: string;
   jobId?: string;
 }
@@ -44,6 +46,8 @@ export default function IngestPage() {
   const [statusMsg, setStatusMsg] = useState("");
   const [total, setTotal] = useState(0);
   const [products, setProducts] = useState<ScannedProduct[]>([]);
+  const [screenshot, setScreenshot] = useState<string | null>(null);
+  
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { toast } = useToast();
@@ -66,6 +70,7 @@ export default function IngestPage() {
     setScanning(true);
     setDone(false);
     setProducts([]);
+    setScreenshot(null);
     setStatusMsg("Starting...");
 
     try {
@@ -110,18 +115,27 @@ export default function IngestPage() {
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
           try {
-            const event: StreamEvent = JSON.parse(line.slice(6));
+            const event: any = JSON.parse(line.slice(6));
+
+            if (event.screenshot) {
+              setScreenshot(event.screenshot);
+            }
 
             if (event.type === "start") {
               setTotal(event.total ?? 0);
             } else if (event.type === "status") {
               setStatusMsg(event.message ?? "");
             } else if (event.type === "product" && event.product) {
-              setProducts((prev) => [...prev, { ...event.product!, status: "done" }]);
+              setProducts((prev) => [...prev, { 
+                ...event.product as ScannedProduct, 
+                status: "done",
+                approved: false,
+                sales_count: 0
+              }]);
             } else if (event.type === "error") {
               setProducts((prev) => [
                 ...prev,
-                { name: `Product ${(event.index ?? 0) + 1}`, price: 0, category: "", image_url: "", in_stock: true, ai_confidence: 0, status: "error", error: event.message },
+                { id: `err-${Date.now()}`, name: `Product ${(event.index ?? 0) + 1}`, price: 0, category: "", image_url: "", in_stock: true, ai_confidence: 0, status: "error", error: event.message, approved: false, sales_count: 0 },
               ]);
             } else if (event.type === "done") {
               setDone(true);
@@ -132,7 +146,7 @@ export default function IngestPage() {
               const isIgBlock = msg.includes("429") || msg.includes("blocked") || msg.includes("private");
               toast(
                 isIgBlock
-                  ? "Instagram blocked the request. Switching to photo upload — drop your product photos instead."
+                  ? "Instagram blocked the request. Try uploading the photos directly."
                   : msg,
                 "error"
               );
@@ -149,12 +163,12 @@ export default function IngestPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-[#1A1208]">Import your products</h1>
         <p className="text-[#7A6E62] mt-1">
-          Paste your Instagram link or upload up to 50 photos. AI handles the rest.
+          Paste your Instagram link or upload photos. AI handles the rest.
         </p>
       </div>
 
@@ -166,7 +180,7 @@ export default function IngestPage() {
               <button
                 key={s}
                 onClick={() => setSource(s)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
                   source === s
                     ? "bg-white text-[#1A1208] shadow-sm"
                     : "text-[#7A6E62] hover:text-[#1A1208]"
@@ -178,8 +192,8 @@ export default function IngestPage() {
             ))}
           </div>
 
-          {source === "instagram" ? (
-            <div className="flex flex-col gap-4">
+          {source === "instagram" && (
+            <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2">
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-[#7A6E62]">Instagram profile or post links</label>
                 <textarea
@@ -201,8 +215,10 @@ export default function IngestPage() {
                 Import posts
               </Button>
             </div>
-          ) : (
-            <div className="flex flex-col gap-4">
+          )}
+
+          {source === "upload" && (
+            <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2">
               <div
                 onDrop={onDrop}
                 onDragOver={(e) => e.preventDefault()}
@@ -247,81 +263,78 @@ export default function IngestPage() {
         </>
       )}
 
-      {/* Live scanning view */}
-      {(scanning || done) && (
-        <div className="flex flex-col gap-6">
-          {/* Progress bar */}
-          <div className="bg-white rounded-2xl border border-[#E8E0D4] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                {scanning && <Loader2 size={16} className="animate-spin text-[#C4973A]" />}
-                {done && <Check size={16} className="text-[#2D6A4F]" />}
-                <span className="text-sm font-medium text-[#1A1208]">
-                  {done ? "Scan complete" : statusMsg || "Scanning..."}
+      {/* Live results view */}
+      {(scanning || done || products.length > 0) && (
+        <div className="flex flex-col gap-6 mt-8">
+          {scanning && (
+            <div className="bg-white rounded-2xl border border-[#E8E0D4] p-5 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Loader2 size={16} className="animate-spin text-[#C4973A]" />
+                  <span className="text-sm font-medium text-[#1A1208]">
+                    {statusMsg || "Scanning..."}
+                  </span>
+                </div>
+                <span className="text-sm text-[#7A6E62]">
+                  {processed}/{total} products
                 </span>
               </div>
-              <span className="text-sm text-[#7A6E62]">
-                {processed}/{total} products
-              </span>
-            </div>
-            <div className="h-1.5 bg-[#F5F0E8] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#1A1208] rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Live product grid — appears as products come in */}
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-            {/* Placeholder slots for pending products */}
-            {Array.from({ length: Math.max(0, total - products.length) }).map((_, i) => (
-              <div key={`placeholder-${i}`} className="bg-[#F5F0E8] rounded-2xl aspect-[3/4] animate-pulse border border-[#E8E0D4]" />
-            ))}
-
-            {/* Real products in reverse so newest appears first */}
-            {[...products].reverse().map((p, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-[#E8E0D4] overflow-hidden">
-                {p.status === "error" ? (
-                  <div className="aspect-[3/4] flex flex-col items-center justify-center gap-2 p-4">
-                    <AlertCircle size={20} className="text-[#B45309]" />
-                    <p className="text-xs text-[#7A6E62] text-center">Could not parse this image</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="aspect-square bg-[#F5F0E8] relative overflow-hidden">
-                      {p.image_url && (
-                        <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <p className="text-xs font-semibold text-[#1A1208] line-clamp-1">{p.name}</p>
-                      <p className="text-sm font-bold text-[#1A1208] mt-0.5">{formatNaira(p.price)}</p>
-                      <div className="flex items-center gap-1.5 mt-1.5">
-                        <Badge variant="default" className="text-[10px]">{p.category}</Badge>
-                        {p.reviews ? <Badge variant="new" className="text-[10px]">{p.reviews} reviews</Badge> : null}
-                      </div>
-                    </div>
-                  </>
-                )}
+              <div className="h-1.5 bg-[#F5F0E8] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#1A1208] rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
               </div>
-            ))}
+              
+              {screenshot && (
+                <div className="mt-4 rounded-xl overflow-hidden border border-[#E8E0D4] animate-in fade-in zoom-in-95 duration-500">
+                  <p className="text-[10px] font-bold text-[#7A6E62] bg-[#F5F0E8] px-3 py-1.5 uppercase tracking-wider">Live Capture</p>
+                  <img src={`data:image/jpeg;base64,${screenshot}`} alt="Scanning..." className="w-full h-auto max-h-64 object-cover" />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3">
+            <h2 className="text-sm font-semibold text-[#1A1208]">
+              {products.length > 0 ? "Verify detected products" : "Waiting for results..."}
+            </h2>
+            <div className="grid grid-cols-1 gap-3">
+              {/* Placeholder slots for pending products */}
+              {scanning && Array.from({ length: Math.max(0, total - products.length) }).map((_, i) => (
+                <div key={`placeholder-${i}`} className="bg-white rounded-2xl h-28 animate-pulse border border-[#E8E0D4] border-dashed" />
+              ))}
+
+              {/* Real products - newest first */}
+              {[...products].reverse().map((p) => (
+                <div key={p.id}>
+                  {p.status === "error" ? (
+                    <div className="bg-white rounded-2xl border border-[#E8E0D4] border-dashed p-4 flex items-center gap-3">
+                      <AlertCircle size={20} className="text-[#B45309]" />
+                      <p className="text-xs text-[#7A6E62]">{p.error || "Could not parse this image"}</p>
+                    </div>
+                  ) : (
+                    <ProductCard product={p} pending />
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
-          {done && (
-            <div className="flex flex-col gap-3">
-              <div className="bg-[#F5F0E8] rounded-2xl p-5 text-center">
+          {done && products.length > 0 && (
+            <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-top-2">
+              <div className="bg-[#F5F0E8] rounded-2xl p-5 text-center border border-[#E8D5B7]">
                 <p className="text-sm font-medium text-[#1A1208]">
-                  {processed} product{processed !== 1 ? "s" : ""} imported
+                  All set! {processed} products ready for review.
                 </p>
                 <p className="text-xs text-[#7A6E62] mt-1">
-                  Review and approve them in your dashboard to make them live
+                  You can edit details above and click the checkmark to approve them.
                 </p>
               </div>
-              <Button onClick={() => router.push("/dashboard")} className="w-full h-12">
-                Review products
+              <Button onClick={() => router.push("/dashboard")} className="w-full h-12 bg-[#1A1208]">
+                Go to Dashboard
               </Button>
-              <Button variant="secondary" onClick={() => { setDone(false); setProducts([]); setFiles([]); setIgUrls(""); }} className="w-full h-12">
+              <Button variant="secondary" onClick={() => { setDone(false); setProducts([]); setFiles([]); setIgUrls(""); setScreenshot(null); }} className="w-full h-12">
                 Import more
               </Button>
             </div>

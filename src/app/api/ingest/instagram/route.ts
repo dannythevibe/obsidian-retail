@@ -48,9 +48,14 @@ export async function POST(req: NextRequest) {
       try {
         send({ type: "status", message: isProfile ? "Launching browser..." : "Reading posts..." });
 
-        const posts = isProfile
-          ? await scrapeInstagramProfile(profileUrl, (msg) => send({ type: "status", message: msg }))
-          : await scrapeInstagramPosts(postUrls, (msg) => send({ type: "status", message: msg }));
+        const result = isProfile
+          ? await scrapeInstagramProfile(profileUrl, (msg, data) => send({ type: "status", message: msg, ...data }))
+          : { posts: await scrapeInstagramPosts(postUrls, (msg) => send({ type: "status", message: msg })) };
+
+        const posts = result.posts;
+        if (result.screenshot) {
+          send({ type: "status", message: "Profile captured", screenshot: result.screenshot });
+        }
 
         await supabase
           .from("ingestion_jobs")
@@ -79,7 +84,7 @@ export async function POST(req: NextRequest) {
                 price: parsed.price,
                 sale_price: parsed.sale_price ?? null,
                 category: parsed.category,
-                image_url: post.imageUrl,
+                image_url: post.imageUrl, // Initial URL, we'll update it below
                 in_stock: parsed.in_stock,
                 source: "instagram",
                 ai_confidence: parsed.ai_confidence,
@@ -88,6 +93,32 @@ export async function POST(req: NextRequest) {
               })
               .select("id")
               .single();
+
+            // Upload image to Supabase storage for persistence
+            let publicUrl = post.imageUrl;
+            try {
+              const buffer = Buffer.from(post.imageBase64, "base64");
+              const fileName = `${merchant.id}/ig-${Date.now()}-${i}.${post.mimeType.split("/")[1] || "jpg"}`;
+              
+              const { data: uploaded } = await supabase.storage
+                .from("product-images")
+                .upload(fileName, buffer, { contentType: post.mimeType, upsert: false });
+
+              if (uploaded) {
+                const { data: { publicUrl: pUrl } } = supabase.storage
+                  .from("product-images")
+                  .getPublicUrl(uploaded.path);
+                publicUrl = pUrl;
+                
+                // Update product with storage URL
+                await supabase
+                  .from("products")
+                  .update({ image_url: publicUrl })
+                  .eq("id", product?.id);
+              }
+            } catch (err) {
+              console.error("Storage upload failed", err);
+            }
 
             await supabase
               .from("ingestion_jobs")
@@ -102,7 +133,7 @@ export async function POST(req: NextRequest) {
                 name: parsed.name,
                 price: parsed.price,
                 category: parsed.category,
-                image_url: post.imageUrl,
+                image_url: publicUrl,
                 in_stock: parsed.in_stock,
                 reviews: 0,
                 ai_confidence: parsed.ai_confidence,

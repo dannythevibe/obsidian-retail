@@ -116,6 +116,15 @@ async function parseWithGemini(
   return JSON.parse(raw.replace(/```json|```/g, "").trim());
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`AI parse timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 export async function parseProductFromImage(params: {
   imageUrl?: string;
   imageBase64?: string;
@@ -130,18 +139,44 @@ export async function parseProductFromImage(params: {
   try {
     if (imageBase64 && mimeType) {
       // Prefer base64 — works regardless of whether the CDN URL is publicly reachable
-      raw = await parseWithGPT4o({ base64: imageBase64, mimeType }, caption);
+      raw = await withTimeout(parseWithGPT4o({ base64: imageBase64, mimeType }, caption), 15000);
     } else if (imageUrl) {
-      raw = await parseWithGPT4o({ url: imageUrl }, caption);
+      raw = await withTimeout(parseWithGPT4o({ url: imageUrl }, caption), 15000);
     } else {
       throw new Error("No image provided");
     }
-  } catch {
+  } catch (gptErr) {
+    console.error("GPT-4o failed:", gptErr);
     // Fallback: Gemini with base64
     if (imageBase64 && mimeType) {
-      raw = await parseWithGemini(imageBase64, mimeType, caption);
+      try {
+        raw = await withTimeout(parseWithGemini(imageBase64, mimeType, caption), 15000);
+      } catch (geminiErr) {
+        console.error("Gemini also failed:", geminiErr);
+        // Ultimate fallback — return a basic product so the upload doesn't hang
+        return {
+          name: caption?.slice(0, 40) || "New Product",
+          price: 0,
+          category: "General",
+          description: caption || "",
+          in_stock: true,
+          ai_confidence: 0,
+          source,
+          image_url: imageUrl,
+        };
+      }
     } else {
-      throw new Error("Both AI providers failed");
+      // No base64 available and GPT failed — return fallback
+      return {
+        name: caption?.slice(0, 40) || "New Product",
+        price: 0,
+        category: "General",
+        description: caption || "",
+        in_stock: true,
+        ai_confidence: 0,
+        source,
+        image_url: imageUrl,
+      };
     }
   }
 

@@ -24,7 +24,13 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <main className="flex-1 flex flex-col items-center px-6 lg:px-12 pt-10 overflow-hidden">
+      <main className="flex-1 flex flex-col items-center px-6 lg:px-12 pt-10 overflow-hidden relative">
+        {/* Background image */}
+        <div className="absolute inset-0 -z-10 overflow-hidden">
+          <img src="/hero_bg.png" alt="" className="w-full h-full object-cover scale-105" />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/60 to-white" />
+          <div className="absolute inset-0 backdrop-blur-[2px]" />
+        </div>
 
         {/* Social proof pill */}
         <div className="flex items-center gap-2.5 mb-8 bg-[#FAF7F2] border border-[#E8E0D4] rounded-full px-4 py-2">
