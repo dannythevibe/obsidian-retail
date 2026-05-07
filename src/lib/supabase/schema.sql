@@ -56,6 +56,7 @@ create table if not exists orders (
   customer_name        text,
   customer_phone       text,
   customer_email       text,
+  customer_address     text,
   amount               integer not null,               -- in naira
   status               text default 'pending' not null check (status in ('pending','paid','fulfilled','cancelled')),
   payaza_account_no    text,

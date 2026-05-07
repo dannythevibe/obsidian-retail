@@ -7,11 +7,13 @@ export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
   const body = await req.json();
 
-  const { customerName, customerPhone, customerEmail } = body;
+  const { customerName, customerPhone, customerEmail, customerAddress } = body;
 
   if (!customerName) {
     return NextResponse.json({ error: "Customer name is required" }, { status: 400 });
   }
+
+  console.log(`[Order API] Creating order for ${customerName} - Total: ${body.amount || 'Calculating...'}`);
 
   // ── Single product (legacy) ──────────────────────────────────────
   if (body.productId) {
@@ -28,45 +30,55 @@ export async function POST(req: NextRequest) {
     const reference = generateOrderRef(merchant.handle);
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-    const virtualAccount = await createVirtualAccount({
-      amount: product.price,
-      reference,
-      customerName,
-      customerEmail,
-      customerPhone,
-      expiryMinutes: 30,
-    });
-
-    const { data: order, error } = await supabase
-      .from("orders")
-      .insert({
-        merchant_id: product.merchant_id,
-        product_id: product.id,
-        reference,
-        customer_name: customerName,
-        customer_phone: customerPhone ?? null,
-        customer_email: customerEmail ?? null,
+    console.log(`[Order API] Requesting Payaza virtual account for ref: ${reference}`);
+    try {
+      const virtualAccount = await createVirtualAccount({
         amount: product.price,
-        status: "pending",
-        payaza_account_no: virtualAccount.account_number,
-        payaza_bank_name: virtualAccount.bank_name,
-        payaza_account_ref: virtualAccount.reference,
-        expires_at: expiresAt,
-      })
-      .select("id, reference")
-      .single();
+        reference,
+        customerName,
+        customerEmail,
+        customerPhone,
+        expiryMinutes: 30,
+      });
 
-    if (error) return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
+      const { data: order, error } = await supabase
+        .from("orders")
+        .insert({
+          merchant_id: product.merchant_id,
+          product_id: product.id,
+          reference,
+          customer_name: customerName,
+          customer_phone: customerPhone ?? null,
+          customer_email: customerEmail ?? null,
+          customer_address: customerAddress ?? null,
+          amount: product.price,
+          status: "pending",
+          payaza_account_no: virtualAccount.account_number,
+          payaza_bank_name: virtualAccount.bank_name,
+          payaza_account_ref: virtualAccount.reference,
+          expires_at: expiresAt,
+        })
+        .select("id, reference")
+        .single();
 
-    return NextResponse.json({
-      orderId: order.id,
-      reference: order.reference,
-      amount: product.price,
-      accountNumber: virtualAccount.account_number,
-      bankName: virtualAccount.bank_name,
-      accountName: virtualAccount.account_name,
-      expiresAt,
-    });
+      if (error) {
+        console.error("[Order API] Supabase Insert Error:", error);
+        return NextResponse.json({ error: "Failed to save order to database" }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        orderId: order.id,
+        reference: order.reference,
+        amount: product.price,
+        accountNumber: virtualAccount.account_number,
+        bankName: virtualAccount.bank_name,
+        accountName: virtualAccount.account_name,
+        expiresAt,
+      });
+    } catch (payazaErr) {
+      console.error("[Order API] Payaza Error:", payazaErr);
+      return NextResponse.json({ error: "Payment gateway is currently unavailable. Please try again later." }, { status: 503 });
+    }
   }
 
   // ── Cart checkout ────────────────────────────────────────────────
@@ -90,7 +102,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `"${outOfStock.name}" is out of stock` }, { status: 409 });
   }
 
-  // Calculate total (respecting sale prices and quantities)
+  // Calculate total
   const total = items.reduce((sum, item) => {
     const product = products.find((p) => p.id === item.productId);
     if (!product) return sum;
@@ -103,43 +115,53 @@ export async function POST(req: NextRequest) {
   const reference = generateOrderRef(merchant.handle);
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-  const virtualAccount = await createVirtualAccount({
-    amount: total,
-    reference,
-    customerName,
-    customerEmail,
-    customerPhone,
-    expiryMinutes: 30,
-  });
-
-  const { data: order, error } = await supabase
-    .from("orders")
-    .insert({
-      merchant_id: firstProduct.merchant_id,
-      product_id: null,
-      reference,
-      customer_name: customerName,
-      customer_phone: customerPhone ?? null,
-      customer_email: customerEmail ?? null,
+  console.log(`[Order API] Requesting Payaza virtual account (Cart) for ref: ${reference}`);
+  try {
+    const virtualAccount = await createVirtualAccount({
       amount: total,
-      status: "pending",
-      payaza_account_no: virtualAccount.account_number,
-      payaza_bank_name: virtualAccount.bank_name,
-      payaza_account_ref: virtualAccount.reference,
-      expires_at: expiresAt,
-    })
-    .select("id, reference")
-    .single();
+      reference,
+      customerName,
+      customerEmail,
+      customerPhone,
+      expiryMinutes: 30,
+    });
 
-  if (error) return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
+    const { data: order, error } = await supabase
+      .from("orders")
+      .insert({
+        merchant_id: firstProduct.merchant_id,
+        product_id: null,
+        reference,
+        customer_name: customerName,
+        customer_phone: customerPhone ?? null,
+        customer_email: customerEmail ?? null,
+        customer_address: customerAddress ?? null,
+        amount: total,
+        status: "pending",
+        payaza_account_no: virtualAccount.account_number,
+        payaza_bank_name: virtualAccount.bank_name,
+        payaza_account_ref: virtualAccount.reference,
+        expires_at: expiresAt,
+      })
+      .select("id, reference")
+      .single();
 
-  return NextResponse.json({
-    orderId: order.id,
-    reference: order.reference,
-    amount: total,
-    accountNumber: virtualAccount.account_number,
-    bankName: virtualAccount.bank_name,
-    accountName: virtualAccount.account_name,
-    expiresAt,
-  });
+    if (error) {
+      console.error("[Order API] Supabase Insert Error:", error);
+      return NextResponse.json({ error: "Failed to save order to database" }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      orderId: order.id,
+      reference: order.reference,
+      amount: total,
+      accountNumber: virtualAccount.account_number,
+      bankName: virtualAccount.bank_name,
+      accountName: virtualAccount.account_name,
+      expiresAt,
+    });
+  } catch (payazaErr) {
+    console.error("[Order API] Payaza Error:", payazaErr);
+    return NextResponse.json({ error: "Payment gateway is currently unavailable. Please try again later." }, { status: 503 });
+  }
 }
