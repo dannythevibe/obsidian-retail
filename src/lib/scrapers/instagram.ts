@@ -1,6 +1,6 @@
 import path from "path";
 import { chromium } from "playwright-extra";
-// @ts-expect-error — no types for stealth plugin
+// @ts-ignore — no types for stealth plugin
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 
 chromium.use(StealthPlugin());
