@@ -18,7 +18,33 @@ export interface ScrapeResult {
   screenshot?: string; // base64 screenshot of the profile
 }
 
-// ... existing code ...
+const MAX_POSTS = 12;
+const CHROME_PATH = process.env.CHROME_PATH || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
+
+function extractUsername(url: string): string | null {
+  try {
+    const match = url.match(/instagram\.com\/([^/?#&]+)/i);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+async function imageToBase64(url: string): Promise<{ base64: string; mimeType: string }> {
+  try {
+    const res = await fetch(url);
+    const arrayBuffer = await res.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const mimeType = res.headers.get("content-type") || "image/jpeg";
+    return {
+      base64: buffer.toString("base64"),
+      mimeType,
+    };
+  } catch (err) {
+    console.error("Image fetch error:", err);
+    return { base64: "", mimeType: "image/jpeg" };
+  }
+}
 
 export async function scrapeInstagramProfile(
   profileUrl: string,
