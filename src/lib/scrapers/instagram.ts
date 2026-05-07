@@ -83,7 +83,7 @@ export async function scrapeInstagramProfile(
 
   const page = await context.newPage();
   const posts: InstagramPost[] = [];
-  let profileScreenshot = "";
+  let profileScreenshot: any = "";
 
   try {
     onProgress?.("Opening Instagram...");
