@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root {
+  /* Obsidian Retail — warm cream palette */
+  --background: #FAF7F2;
+  --surface: #F5F0E8;
+  --surface-raised: #FFFFFF;
+  --border: #E8E0D4;
+
+  --text-primary: #1A1208;
+  --text-muted: #7A6E62;
+  --text-placeholder: #B0A89E;
+
+  --accent: #C4973A;
+  --accent-hover: #A97E2A;
+
+  --status-paid: #2D6A4F;
+  --status-pending: #B45309;
+  --status-failed: #991B1B;
+
+  --radius: 0.625rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --font-sans: var(--font-geist-sans);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Remove default button styles */
+button {
+  cursor: pointer;
+}
+
+/* Scrollbar — minimal, warm */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
