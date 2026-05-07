@@ -79,6 +79,8 @@ export function StorefrontClient({ merchant, products }: { merchant: Merchant; p
   // Checkout state
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkout, setCheckout] = useState<CheckoutData | null>(null);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [loading, setLoading] = useState(false);
