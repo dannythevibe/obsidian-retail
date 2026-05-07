@@ -11,6 +11,11 @@ export async function POST(req: NextRequest) {
   }
 
   const payload: WebhookPayload = JSON.parse(rawBody);
+  
+  if (!payload || !payload.data) {
+    console.error("[Webhook] Invalid payload structure:", payload);
+    return NextResponse.json({ error: "Invalid payload structure" }, { status: 400 });
+  }
 
   if (payload.event !== "transaction.successful") {
     return NextResponse.json({ received: true });
@@ -19,6 +24,11 @@ export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
   const payazaRef = payload.data.transaction_reference;
   const orderRef = payload.data.merchant_reference;
+
+  if (!payazaRef || !orderRef) {
+    console.error("[Webhook] Missing references in payload");
+    return NextResponse.json({ error: "Missing references" }, { status: 400 });
+  }
 
   // Idempotency check — never process the same transaction twice
   const { data: existing } = await supabase

@@ -1,9 +1,8 @@
-const PAYAZA_BASE_URL = "https://api.payaza.africa";
 const PAYAZA_LIVE_URL = "https://api.payaza.africa";
-const PAYAZA_TEST_URL = "https://api.payaza.africa/sandbox";
+const PAYAZA_SANDBOX_URL = "https://api-sandbox.payaza.africa";
 
 function getBaseUrl() {
-  return process.env.PAYAZA_ENV === "live" ? PAYAZA_LIVE_URL : PAYAZA_TEST_URL;
+  return process.env.PAYAZA_ENV === "live" ? PAYAZA_LIVE_URL : PAYAZA_SANDBOX_URL;
 }
 
 function getHeaders() {
