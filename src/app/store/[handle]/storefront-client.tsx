@@ -86,6 +86,13 @@ export function StorefrontClient({ merchant, products }: { merchant: Merchant; p
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState("");
   const [showTicket, setShowTicket] = useState(false);
+  const [ticketDate, setTicketDate] = useState("");
+
+  useEffect(() => {
+    if (showTicket) {
+      setTicketDate(new Date().toLocaleDateString());
+    }
+  }, [showTicket]);
 
   const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const cartTotal = cart.reduce((s, i) => s + (i.product.sale_price ?? i.product.price) * i.quantity, 0);
@@ -730,7 +737,7 @@ export function StorefrontClient({ merchant, products }: { merchant: Merchant; p
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full border border-[#E8E0D4]" />
                   <div className="text-center mb-6">
                     <p className="text-[10px] font-bold text-[#C4973A] uppercase tracking-widest mb-1">{merchant.store_name}</p>
-                    <p className="text-xs text-[#7A6E62]">{new Date().toLocaleDateString()}</p>
+                    <p className="text-xs text-[#7A6E62]">{ticketDate}</p>
                     <p className="text-xl font-bold text-[#1A1208] mt-2">#{checkout.reference.split("-").pop()}</p>
                   </div>
 
