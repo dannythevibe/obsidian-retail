@@ -13,7 +13,7 @@ interface Product {
   name: string;
   price: number;
   sale_price?: number | null;
-  category: string;
+  category?: string | null;
   image_url?: string | null;
   in_stock: boolean;
   approved: boolean;
@@ -113,7 +113,7 @@ export function ProductCard({ product, pending }: { product: Product; pending?: 
         )}
         
         <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-          <Badge variant="default" className="text-[10px] bg-[#FAF7F2] text-[#7A6E62] border-[#E8E0D4]">{product.category}</Badge>
+          <Badge variant="default" className="text-[10px] bg-[#FAF7F2] text-[#7A6E62] border-[#E8E0D4]">{product.category || "General"}</Badge>
           {!product.in_stock && <Badge variant="pending" className="text-[10px]">Out of stock</Badge>}
           {!pending && <span className="text-[10px] text-[#B0A89E]">{product.sales_count} sold</span>}
           {pending && (

@@ -9,18 +9,15 @@ import { Plus, ArrowUpRight, Package, ShoppingBag, TrendingUp, Clock } from "luc
 interface Product {
   id: string;
   name: string;
-  description: string | null;
   price: number;
-  sale_price: number | null;
-  category: string | null;
-  image_url: string | null;
+  sale_price?: number | null;
+  category?: string | null;
+  image_url?: string | null;
   in_stock: boolean;
-  is_best_seller: boolean;
-  sales_count: number;
-  position: number;
   approved: boolean;
-  created_at: string;
-  updated_at: string;
+  sales_count: number;
+  ai_confidence?: number | null;
+  position?: number;
 }
 
 interface Order {
