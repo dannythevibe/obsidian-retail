@@ -64,7 +64,7 @@ export default function LandingPage() {
               Sign in
             </Link>
             <Link href="/login">
-              <Button size="sm" className="bg-black hover:bg-black/80 text-white px-8 rounded-full shadow-lg transition-all active:scale-95">
+              <Button size="sm" variant="primary" className="bg-black hover:bg-black/80 text-white px-8 rounded-full shadow-lg transition-all active:scale-95">
                 Join now
               </Button>
             </Link>

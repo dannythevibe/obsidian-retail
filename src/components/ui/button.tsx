@@ -12,6 +12,7 @@ const buttonVariants = cva(
         ghost: "text-[#1A1208] hover:bg-[#F5F0E8] active:bg-[#EDE5D8]",
         danger: "bg-[#991B1B] text-white hover:bg-[#7F1D1D]",
         accent: "bg-[#C4973A] text-white hover:bg-[#A97E2A]",
+        outline: "bg-transparent text-white border border-white/30 hover:bg-white/10",
       },
       size: {
         sm: "h-8 px-3 text-xs rounded-lg gap-1.5",
