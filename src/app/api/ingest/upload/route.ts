@@ -75,13 +75,20 @@ export async function POST(req: NextRequest) {
 
               // Upload image to Supabase storage
               const fileName = `${merchant.id}/${Date.now()}-${idx}.${mimeType.split("/")[1]}`;
-              const { data: uploaded } = await supabase.storage
+              const { data: uploaded, error: uploadError } = await supabase.storage
                 .from("product-images")
                 .upload(fileName, file, { contentType: mimeType, upsert: false });
 
+              if (uploadError) {
+                console.error("[Upload API] Storage Upload Error:", uploadError);
+                throw uploadError;
+              }
+
               const { data: { publicUrl } } = supabase.storage
                 .from("product-images")
-                .getPublicUrl(uploaded?.path ?? fileName);
+                .getPublicUrl(fileName);
+
+              console.log(`[Upload API] Generated Public URL: ${publicUrl}`);
 
               // Insert product as pending approval
               const { data: product } = await supabase

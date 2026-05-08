@@ -81,7 +81,7 @@ export function ProductCard({ product, pending }: { product: Product; pending?: 
         )}
         {pending && (
           <div className="absolute top-1 right-1">
-            <Badge variant="default" className="bg-[#1A1208] text-white text-[8px] px-1.5 py-0">AI</Badge>
+            <Badge variant="default" className="bg-[#1A1208] text-white text-[8px] px-1.5 py-0">NEW</Badge>
           </div>
         )}
       </div>
@@ -116,8 +116,8 @@ export function ProductCard({ product, pending }: { product: Product; pending?: 
           <Badge variant="default" className="text-[10px] bg-[#FAF7F2] text-[#7A6E62] border-[#E8E0D4]">{product.category}</Badge>
           {!product.in_stock && <Badge variant="pending" className="text-[10px]">Out of stock</Badge>}
           {!pending && <span className="text-[10px] text-[#B0A89E]">{product.sales_count} sold</span>}
-          {pending && product.ai_confidence && (
-            <span className="text-[10px] text-[#7A6E62] font-medium">{Math.round(product.ai_confidence * 100)}% match</span>
+          {pending && (
+            <span className="text-[10px] text-[#7A6E62] font-medium tracking-tight">Pending Approval</span>
           )}
         </div>
       </div>

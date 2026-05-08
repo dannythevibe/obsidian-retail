@@ -112,24 +112,29 @@ alter table payaza_transactions enable row level security;
 alter table ingestion_jobs      enable row level security;
 
 -- Merchants: own their row
+drop policy if exists "merchant_own" on merchants;
 create policy "merchant_own" on merchants
   for all using (auth.uid() = user_id);
 
 -- Products: merchant owns their products
+drop policy if exists "products_merchant_own" on products;
 create policy "products_merchant_own" on products
   for all using (
     merchant_id in (select id from merchants where user_id = auth.uid())
   );
 
 -- Products: public can read approved + in-stock products (for storefront)
+drop policy if exists "products_public_read" on products;
 create policy "products_public_read" on products
   for select using (approved = true);
 
 -- Reviews: public can read
+drop policy if exists "reviews_public_read" on reviews;
 create policy "reviews_public_read" on reviews
   for select using (true);
 
 -- Reviews: merchant can insert/delete
+drop policy if exists "reviews_merchant_write" on reviews;
 create policy "reviews_merchant_write" on reviews
   for all using (
     product_id in (
@@ -140,24 +145,29 @@ create policy "reviews_merchant_write" on reviews
   );
 
 -- Orders: merchant reads their orders
+drop policy if exists "orders_merchant_read" on orders;
 create policy "orders_merchant_read" on orders
   for select using (
     merchant_id in (select id from merchants where user_id = auth.uid())
   );
 
 -- Orders: service role writes (webhooks use service key)
+drop policy if exists "orders_service_write" on orders;
 create policy "orders_service_write" on orders
   for all using (auth.role() = 'service_role');
 
 -- Payaza transactions: merchant read, service write
+drop policy if exists "payaza_merchant_read" on payaza_transactions;
 create policy "payaza_merchant_read" on payaza_transactions
   for select using (
     merchant_id in (select id from merchants where user_id = auth.uid())
   );
+drop policy if exists "payaza_service_write" on payaza_transactions;
 create policy "payaza_service_write" on payaza_transactions
   for all using (auth.role() = 'service_role');
 
 -- Ingestion jobs: merchant owns
+drop policy if exists "ingestion_merchant_own" on ingestion_jobs;
 create policy "ingestion_merchant_own" on ingestion_jobs
   for all using (
     merchant_id in (select id from merchants where user_id = auth.uid())
@@ -172,10 +182,15 @@ begin
 end;
 $$ language plpgsql;
 
+drop trigger if exists merchants_updated_at on merchants;
 create trigger merchants_updated_at before update on merchants
   for each row execute function update_updated_at();
+
+drop trigger if exists products_updated_at on products;
 create trigger products_updated_at before update on products
   for each row execute function update_updated_at();
+
+drop trigger if exists orders_updated_at on orders;
 create trigger orders_updated_at before update on orders
   for each row execute function update_updated_at();
 
@@ -199,3 +214,29 @@ $$ language plpgsql security definer;
 insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true)
 on conflict (id) do nothing;
+
+-- Allow public access to read images
+drop policy if exists "Public Read" on storage.objects;
+create policy "Public Read"
+on storage.objects for select
+using ( bucket_id = 'product-images' );
+
+-- Allow authenticated users to upload images
+drop policy if exists "Authenticated Upload" on storage.objects;
+create policy "Authenticated Upload"
+on storage.objects for insert
+with check (
+  bucket_id = 'product-images' 
+  AND auth.role() = 'authenticated'
+);
+
+-- Allow users to manage their own folder in the bucket
+drop policy if exists "Merchant Manage Own Folder" on storage.objects;
+create policy "Merchant Manage Own Folder"
+on storage.objects for all
+using (
+  bucket_id = 'product-images'
+  AND (storage.foldername(name))[1] in (
+    select id::text from merchants where user_id = auth.uid()
+  )
+);

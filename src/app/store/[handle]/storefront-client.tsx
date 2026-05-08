@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { formatNaira } from "@/lib/utils";
 import {
   ShoppingBag, X, Plus, Minus, Copy, Check, Clock,
   Search, Star, Truck, RotateCcw, Headphones, CreditCard, ChevronRight,
+  Sparkles, ShieldCheck
 } from "lucide-react";
 
 interface Product {
@@ -208,123 +210,181 @@ export function StorefrontClient({ merchant, products }: { merchant: Merchant; p
       </div>
 
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 lg:px-8 h-16 flex items-center gap-6">
+      <header className="sticky top-0 z-30 glass border-b border-[#E8E0D4]/50 shadow-sm transition-all duration-300">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 h-16 lg:h-20 flex items-center gap-6">
           {/* Logo */}
-          <div className="flex items-center gap-3 shrink-0">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-3 shrink-0"
+          >
             {merchant.logo_url ? (
-              <img src={merchant.logo_url} alt={merchant.store_name} className="w-9 h-9 rounded-full object-cover" />
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-[#C4973A] to-[#1A1208] rounded-full blur opacity-25 group-hover:opacity-50 transition duration-1000" />
+                <img src={merchant.logo_url} alt={merchant.store_name} className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full object-cover border-2 border-white shadow-sm" />
+              </div>
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[#C4973A] flex items-center justify-center text-white text-sm font-bold">{initials}</div>
+              <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-2xl bg-gradient-to-br from-[#1A1208] to-[#2D2010] flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-[#1A1208]/20">{initials}</div>
             )}
-            <span className="text-sm font-bold text-[#1A1208] tracking-tight">{merchant.store_name}</span>
-          </div>
+            <div className="flex flex-col">
+              <span className="text-sm lg:text-base font-black text-[#1A1208] tracking-tight uppercase leading-none">{merchant.store_name}</span>
+              <span className="text-[10px] text-[#7A6E62] mt-1 font-medium hidden sm:block">Verified Merchant</span>
+            </div>
+          </motion.div>
 
           {/* Category nav */}
-          <nav className="hidden lg:flex items-center gap-6 text-sm text-[#7A6E62] ml-4">
-            <button onClick={() => setActiveCategory(null)} className={`hover:text-[#1A1208] transition-colors ${!activeCategory ? "text-[#1A1208] font-semibold" : ""}`}>
+          <nav className="hidden xl:flex items-center gap-8 text-sm font-semibold text-[#7A6E62] ml-10">
+            <button onClick={() => setActiveCategory(null)} className={`hover:text-[#1A1208] transition-all relative group ${!activeCategory ? "text-[#1A1208]" : ""}`}>
               All Products
+              <span className={`absolute -bottom-1 left-0 h-0.5 bg-[#C4973A] transition-all ${!activeCategory ? "w-full" : "w-0 group-hover:w-full"}`} />
             </button>
             {categories.slice(0, 4).map((c) => (
               <button key={c} onClick={() => setActiveCategory(c === activeCategory ? null : c)}
-                className={`hover:text-[#1A1208] transition-colors capitalize ${activeCategory === c ? "text-[#1A1208] font-semibold" : ""}`}>
+                className={`hover:text-[#1A1208] transition-all capitalize relative group ${activeCategory === c ? "text-[#1A1208]" : ""}`}>
                 {c}
+                <span className={`absolute -bottom-1 left-0 h-0.5 bg-[#C4973A] transition-all ${activeCategory === c ? "w-full" : "w-0 group-hover:w-full"}`} />
               </button>
             ))}
           </nav>
 
           {/* Search */}
-          <div className="flex-1 hidden lg:flex justify-center">
-            <div className="relative w-72">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0A89E]" />
+          <div className="flex-1 hidden lg:flex justify-center px-4">
+            <div className="relative w-full max-w-md group">
+              <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B0A89E] group-focus-within:text-[#C4973A] transition-colors" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search products..."
-                className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-[#E8E0D4] bg-[#FAF7F2] focus:outline-none focus:border-[#C4973A] transition-colors"
+                className="w-full pl-12 pr-4 py-3 text-sm rounded-2xl border border-[#E8E0D4] bg-[#FAF7F2]/50 focus:bg-white focus:outline-none focus:border-[#C4973A] focus:ring-4 focus:ring-[#C4973A]/5 transition-all shadow-sm"
               />
             </div>
           </div>
 
           {/* Cart */}
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setCartOpen(true)}
-            className="relative ml-auto flex items-center gap-2 bg-[#1A1208] text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#2D2010] transition-colors"
+            className="relative ml-auto flex items-center gap-3 bg-[#1A1208] text-white px-5 py-3 rounded-2xl text-sm font-bold hover:bg-black transition-all shadow-xl shadow-[#1A1208]/20 group"
           >
-            <ShoppingBag size={16} />
-            <span className="hidden sm:inline">Cart</span>
+            <ShoppingBag size={18} className="group-hover:rotate-12 transition-transform" />
+            <span className="hidden sm:inline uppercase tracking-widest text-xs">Cart</span>
             {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#C4973A] rounded-full text-[10px] font-bold flex items-center justify-center">
-                {cartCount}
-              </span>
+              <AnimatePresence>
+                <motion.span 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-[#C4973A] rounded-full text-[10px] font-black flex items-center justify-center border-2 border-white shadow-md"
+                >
+                  {cartCount}
+                </motion.span>
+              </AnimatePresence>
             )}
-          </button>
+          </motion.button>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-gray-100">
-        <div className="absolute inset-0 -z-10">
-          <img src="/hero_bg.png" alt="" className="w-full h-full object-cover opacity-60" />
-          <div className="absolute inset-0 bg-[#FAF7F2]/70" />
+      <section className="relative overflow-hidden bg-[#FAF7F2] border-b border-[#E8E0D4]">
+        <div className="absolute inset-0 -z-10 opacity-30">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#C4973A]/20 blur-[100px] rounded-full" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#1A1208]/10 blur-[100px] rounded-full" />
         </div>
-        <div className="max-w-6xl mx-auto px-4 lg:px-8 flex items-center min-h-[420px] lg:min-h-[500px]">
-          <div className="flex-1 py-12 lg:py-16 z-10 relative">
-            <p className="text-xs font-semibold text-[#C4973A] uppercase tracking-widest mb-3">New Collection</p>
-            <h1 className="text-4xl lg:text-6xl font-bold text-[#1A1208] leading-tight max-w-lg">
-              {merchant.store_name}
-            </h1>
-            <p className="text-base text-[#7A6E62] mt-4 max-w-sm leading-relaxed">
-              {merchant.description ?? "Discover our curated collection of premium products, crafted for you."}
-            </p>
-            <button
-              onClick={() => document.getElementById("products")?.scrollIntoView({ behavior: "smooth" })}
-              className="mt-8 inline-flex items-center gap-2 bg-[#1A1208] text-white px-7 py-3.5 rounded-xl text-sm font-semibold hover:bg-[#2D2010] transition-colors"
+        
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-16 lg:py-24 flex flex-col lg:flex-row items-center gap-16 relative">
+          <div className="flex-1 text-center lg:text-left z-10">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
             >
-              Shop Now <ChevronRight size={16} />
-            </button>
+              <p className="text-xs font-black text-[#C4973A] uppercase tracking-[0.3em] mb-4">Official Storefront</p>
+              <h1 className="text-5xl lg:text-7xl font-bold text-[#1A1208] leading-[0.9] tracking-tighter mb-6">
+                {merchant.store_name}
+              </h1>
+              <p className="text-lg text-[#7A6E62] max-w-lg leading-relaxed mb-10 mx-auto lg:mx-0">
+                {merchant.description ?? "Discover our curated collection of premium products, crafted for those who value quality and style."}
+              </p>
+              <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
+                <button
+                  onClick={() => document.getElementById("products")?.scrollIntoView({ behavior: "smooth" })}
+                  className="w-full sm:w-auto bg-[#1A1208] text-white px-10 py-5 rounded-2xl text-sm font-bold uppercase tracking-widest hover:bg-black transition-all shadow-2xl shadow-[#1A1208]/20 flex items-center justify-center gap-3 group"
+                >
+                  Start Shopping <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                </button>
+                <div className="flex items-center gap-3 px-6 py-4 glass rounded-2xl">
+                  <ShieldCheck size={20} className="text-[#2D6A4F]" />
+                  <span className="text-xs font-bold text-[#1A1208] uppercase">Secure Payments</span>
+                </div>
+              </div>
+            </motion.div>
           </div>
 
-          {/* Hero product image */}
-          {heroProduct?.image_url && (
-            <div className="hidden lg:block absolute right-0 top-0 bottom-0 w-[45%]">
-              <img
-                src={heroProduct.image_url}
-                alt={heroProduct.name}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#FAF7F2]/90 via-[#FAF7F2]/40 to-transparent" />
+          {/* Hero product visual */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, rotate: 2 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="flex-1 w-full max-w-md lg:max-w-none relative"
+          >
+            <div className="relative aspect-[4/5] rounded-[3rem] overflow-hidden shadow-premium border-8 border-white">
+              {heroProduct?.image_url ? (
+                <img
+                  src={heroProduct.image_url}
+                  alt={heroProduct.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-[#F5F0E8] flex items-center justify-center">
+                  <ShoppingBag size={80} strokeWidth={1} className="text-[#E8E0D4]" />
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#1A1208]/60 via-transparent to-transparent" />
+              <div className="absolute bottom-8 left-8 right-8">
+                <p className="text-xs font-bold text-white/70 uppercase tracking-widest mb-1">Featured Product</p>
+                <p className="text-2xl font-bold text-white mb-2">{heroProduct?.name}</p>
+                <p className="text-xl font-bold text-[#C4973A]">{formatNaira(heroProduct?.sale_price ?? heroProduct?.price ?? 0)}</p>
+              </div>
             </div>
-          )}
+            
+            {/* Floating badge */}
+            <motion.div 
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -top-6 -right-6 glass-dark p-6 rounded-3xl shadow-premium border border-white/10 hidden sm:block"
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <Sparkles size={20} className="text-[#C4973A]" />
+                <span className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em]">Quality First</span>
+              </div>
+              <p className="text-sm font-bold text-white">Curated Collection</p>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
       {/* Featured Products */}
-      <section id="products" className="max-w-6xl mx-auto px-4 lg:px-8 py-16">
-        <div className="text-center mb-10">
-          <h2 className="text-2xl lg:text-3xl font-bold text-[#1A1208]">Our Featured Products</h2>
-          {merchant.description && (
-            <p className="text-sm text-[#7A6E62] mt-2">{merchant.description}</p>
-          )}
-        </div>
+      <section id="products" className="max-w-7xl mx-auto px-4 lg:px-8 py-20 lg:py-32">
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-12 gap-6">
+          <div>
+            <motion.h2 
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="text-3xl lg:text-5xl font-bold text-[#1A1208] tracking-tighter"
+            >
+              Our Collection
+            </motion.h2>
+            <p className="text-base text-[#7A6E62] mt-3 max-w-md">
+              {merchant.description ?? "Handpicked products for your unique style."}
+            </p>
+          </div>
 
-        {/* Mobile search */}
-        <div className="lg:hidden mb-6 relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0A89E]" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products..."
-            className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-[#E8E0D4] focus:outline-none focus:border-[#C4973A] transition-colors"
-          />
-        </div>
-
-        {/* Category pills (mobile) */}
-        {categories.length > 0 && (
-          <div className="lg:hidden flex gap-2 overflow-x-auto pb-3 mb-6">
+          {/* Desktop Category Filter */}
+          <div className="hidden lg:flex items-center gap-3 bg-[#F5F0E8] p-1.5 rounded-2xl border border-[#E8E0D4]">
             <button
               onClick={() => setActiveCategory(null)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${!activeCategory ? "bg-[#1A1208] text-white border-[#1A1208]" : "bg-white text-[#7A6E62] border-[#E8E0D4]"}`}
+              className={`px-5 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-widest ${!activeCategory ? "bg-[#1A1208] text-white shadow-lg shadow-[#1A1208]/20" : "text-[#7A6E62] hover:text-[#1A1208]"}`}
             >
               All
             </button>
@@ -332,29 +392,73 @@ export function StorefrontClient({ merchant, products }: { merchant: Merchant; p
               <button
                 key={c}
                 onClick={() => setActiveCategory(c === activeCategory ? null : c)}
-                className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border capitalize transition-colors ${activeCategory === c ? "bg-[#1A1208] text-white border-[#1A1208]" : "bg-white text-[#7A6E62] border-[#E8E0D4]"}`}
+                className={`px-5 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-widest capitalize ${activeCategory === c ? "bg-[#1A1208] text-white shadow-lg shadow-[#1A1208]/20" : "text-[#7A6E62] hover:text-[#1A1208]"}`}
               >
                 {c}
               </button>
             ))}
           </div>
-        )}
+        </div>
 
-        {filtered.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-[#B0A89E]">No products found</p>
+        {/* Mobile search & filters */}
+        <div className="lg:hidden mb-8 space-y-4">
+          <div className="relative">
+            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#B0A89E]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products..."
+              className="w-full pl-12 pr-4 py-4 text-sm rounded-2xl border border-[#E8E0D4] bg-white focus:outline-none focus:border-[#C4973A] transition-all shadow-sm"
+            />
           </div>
-        ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-            {filtered.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onView={() => setSelected(product)}
-                onAddToCart={(p) => { addToCart(p); setCartOpen(true); }}
-              />
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            <button
+              onClick={() => setActiveCategory(null)}
+              className={`shrink-0 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${!activeCategory ? "bg-[#1A1208] text-white border-[#1A1208]" : "bg-white text-[#7A6E62] border-[#E8E0D4]"}`}
+            >
+              All
+            </button>
+            {categories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setActiveCategory(c === activeCategory ? null : c)}
+                className={`shrink-0 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border capitalize transition-all ${activeCategory === c ? "bg-[#1A1208] text-white border-[#1A1208]" : "bg-white text-[#7A6E62] border-[#E8E0D4]"}`}
+              >
+                {c}
+              </button>
             ))}
           </div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-32 bg-[#FAF7F2] rounded-[3rem] border-2 border-dashed border-[#E8E0D4]"
+          >
+            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <Search size={32} className="text-[#B0A89E]" strokeWidth={1} />
+            </div>
+            <p className="text-[#1A1208] font-bold text-lg">No products found</p>
+            <p className="text-[#7A6E62] text-sm mt-1">Try adjusting your search or filters</p>
+            <button onClick={() => { setSearch(""); setActiveCategory(null); }} className="mt-6 text-[#C4973A] font-bold text-sm uppercase tracking-widest hover:underline">Clear all</button>
+          </motion.div>
+        ) : (
+          <motion.div 
+            layout
+            className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8"
+          >
+            <AnimatePresence mode="popLayout">
+              {filtered.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onView={() => setSelected(product)}
+                  onAddToCart={(p) => { addToCart(p); setCartOpen(true); }}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </section>
 
@@ -860,57 +964,83 @@ function ProductCard({
     : 0;
 
   return (
-    <div className="group cursor-pointer" onClick={onView}>
-      <div className="relative bg-[#F5F0E8] rounded-2xl overflow-hidden aspect-square mb-3">
+    <motion.div 
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      whileHover={{ y: -8 }}
+      className="group cursor-pointer" 
+      onClick={onView}
+    >
+      <div className="relative bg-[#F5F0E8] rounded-[2.5rem] overflow-hidden aspect-[4/5] mb-5 shadow-sm group-hover:shadow-premium transition-all duration-500">
         {product.image_url ? (
           <img
             src={product.image_url}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+            onError={(e) => {
+              console.error(`[Storefront] Image failed to load: ${product.image_url}`);
+              // Fallback to placeholder if needed
+            }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[#B0A89E]">
-            <ShoppingBag size={32} strokeWidth={1} />
+            <ShoppingBag size={40} strokeWidth={1} />
           </div>
         )}
-        {hasDiscount && (
-          <div className="absolute top-2 left-2 bg-[#C4973A] text-white text-[10px] font-bold px-2 py-1 rounded-lg">
-            -{discountPct}%
-          </div>
-        )}
-        {product.is_best_seller && (
-          <div className="absolute top-2 right-2 bg-[#1A1208] text-white text-[10px] font-bold px-2 py-1 rounded-lg">
-            ★ Best
-          </div>
-        )}
+        
+        {/* Overlays */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#1A1208]/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        
+        {/* Badges */}
+        <div className="absolute top-4 left-4 flex flex-col gap-2">
+          {hasDiscount && (
+            <div className="bg-[#C4973A] text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg">
+              -{discountPct}% OFF
+            </div>
+          )}
+          {product.is_best_seller && (
+            <div className="bg-white/90 backdrop-blur-md text-[#1A1208] text-[10px] font-black px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1">
+              <Star size={10} className="fill-[#C4973A] text-[#C4973A]" /> BEST
+            </div>
+          )}
+        </div>
+
         {!product.in_stock && (
-          <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
-            <span className="text-xs font-semibold text-[#7A6E62] bg-white px-3 py-1 rounded-full border border-[#E8E0D4]">
-              Out of stock
+          <div className="absolute inset-0 bg-[#FAF7F2]/80 backdrop-blur-[2px] flex items-center justify-center p-6 text-center">
+            <span className="text-[10px] font-black text-[#7A6E62] uppercase tracking-[0.2em] bg-white border border-[#E8E0D4] px-4 py-2 rounded-2xl shadow-sm">
+              Restocking Soon
             </span>
           </div>
         )}
+
         {/* Quick add button */}
         {product.in_stock && (
-          <button
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
             onClick={(e) => { e.stopPropagation(); onAddToCart(product); }}
-            className="absolute bottom-2 right-2 w-8 h-8 bg-[#1A1208] text-white rounded-xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+            className="absolute bottom-4 right-4 w-12 h-12 bg-white text-[#1A1208] rounded-2xl flex items-center justify-center opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 shadow-xl shadow-black/10 hover:bg-[#1A1208] hover:text-white"
           >
-            <Plus size={14} />
-          </button>
+            <Plus size={20} />
+          </motion.button>
         )}
       </div>
 
-      <div className="px-1">
-        <p className="text-xs font-semibold text-[#1A1208] line-clamp-2 mb-1 leading-snug">{product.name}</p>
-        <Stars count={product.reviews.length} />
-        <div className="flex items-baseline gap-2 mt-1">
-          <p className="text-sm font-bold text-[#1A1208]">{formatNaira(displayPrice)}</p>
+      <div className="px-2">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <p className="text-[10px] font-black text-[#7A6E62] uppercase tracking-[0.2em]">{product.category ?? "Collection"}</p>
+          <Stars count={product.reviews.length} />
+        </div>
+        <h3 className="text-sm font-bold text-[#1A1208] line-clamp-1 group-hover:text-[#C4973A] transition-colors mb-2 uppercase tracking-tight">{product.name}</h3>
+        <div className="flex items-center gap-3">
+          <p className="text-lg font-black text-[#1A1208] tracking-tighter">{formatNaira(displayPrice)}</p>
           {hasDiscount && (
-            <p className="text-xs text-[#B0A89E] line-through">{formatNaira(product.price)}</p>
+            <p className="text-sm text-[#B0A89E] line-through font-medium">{formatNaira(product.price)}</p>
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
