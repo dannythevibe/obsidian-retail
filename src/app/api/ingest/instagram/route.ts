@@ -3,7 +3,7 @@ import { scrapeInstagramProfile, scrapeInstagramPosts } from "@/lib/scrapers/ins
 import { parseProductFromImage } from "@/lib/ai/catalog-parser";
 import { createClient } from "@/lib/supabase/server";
 
-export const maxDuration = 120;
+export const maxDuration = 300; // 5 minutes
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -46,15 +46,19 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
 
       try {
-        send({ type: "status", message: isProfile ? "Launching browser..." : "Reading posts..." });
+        send({ type: "status", message: isProfile ? "Smart Scanner: Launching..." : "Reading individual posts..." });
 
         const result = isProfile
-          ? await scrapeInstagramProfile(profileUrl, (msg, data) => send({ type: "status", message: msg, ...data }))
+          ? await scrapeInstagramProfile(profileUrl, (msg, data) => send({ type: "status", message: `Scanner: ${msg}`, ...data }))
           : { posts: await scrapeInstagramPosts(postUrls, (msg) => send({ type: "status", message: msg })) };
 
         const posts = result.posts;
+        if (!posts || posts.length === 0) {
+          throw new Error("No products detected on this page. Make sure the profile is public.");
+        }
+
         if (result.screenshot) {
-          send({ type: "status", message: "Profile captured", screenshot: result.screenshot });
+          send({ type: "status", message: "Page captured. Identifying products..." });
         }
 
         await supabase
@@ -67,6 +71,8 @@ export async function POST(req: NextRequest) {
         for (let i = 0; i < posts.length; i++) {
           const post = posts[i];
           try {
+            send({ type: "status", message: `AI Analysis: Ingesting item ${i + 1}...` });
+            
             const parsed = await parseProductFromImage({
               imageUrl: post.imageUrl,
               imageBase64: post.imageBase64,
@@ -75,7 +81,9 @@ export async function POST(req: NextRequest) {
               source: "instagram",
             });
 
-            const { data: product } = await supabase
+            send({ type: "status", message: `Smart Extraction: ${parsed.name} (₦${parsed.price})` });
+
+            const { data: product, error: insertError } = await supabase
               .from("products")
               .insert({
                 merchant_id: merchant.id,
@@ -84,7 +92,7 @@ export async function POST(req: NextRequest) {
                 price: parsed.price,
                 sale_price: parsed.sale_price ?? null,
                 category: parsed.category,
-                image_url: post.imageUrl, // Initial URL, we'll update it below
+                image_url: post.imageUrl,
                 in_stock: parsed.in_stock,
                 source: "instagram",
                 ai_confidence: parsed.ai_confidence,
@@ -94,32 +102,9 @@ export async function POST(req: NextRequest) {
               .select("id")
               .single();
 
-            // Upload image to Supabase storage for persistence
-            let publicUrl = post.imageUrl;
-            try {
-              const buffer = Buffer.from(post.imageBase64, "base64");
-              const fileName = `${merchant.id}/ig-${Date.now()}-${i}.${post.mimeType.split("/")[1] || "jpg"}`;
-              
-              const { data: uploaded } = await supabase.storage
-                .from("product-images")
-                .upload(fileName, buffer, { contentType: post.mimeType, upsert: false });
+            if (insertError) throw insertError;
 
-              if (uploaded) {
-                const { data: { publicUrl: pUrl } } = supabase.storage
-                  .from("product-images")
-                  .getPublicUrl(uploaded.path);
-                publicUrl = pUrl;
-                
-                // Update product with storage URL
-                await supabase
-                  .from("products")
-                  .update({ image_url: publicUrl })
-                  .eq("id", product?.id);
-              }
-            } catch (err) {
-              console.error("Storage upload failed", err);
-            }
-
+            // Update job progress
             await supabase
               .from("ingestion_jobs")
               .update({ processed: i + 1 })
@@ -133,14 +118,14 @@ export async function POST(req: NextRequest) {
                 name: parsed.name,
                 price: parsed.price,
                 category: parsed.category,
-                image_url: publicUrl,
+                image_url: post.imageUrl,
                 in_stock: parsed.in_stock,
-                reviews: 0,
                 ai_confidence: parsed.ai_confidence,
               },
             });
-          } catch {
-            send({ type: "error", index: i, message: "Could not parse this post" });
+          } catch (itemErr) {
+            console.error("Item ingestion failed:", itemErr);
+            send({ type: "error", index: i, message: "Could not finalize this item" });
           }
         }
 

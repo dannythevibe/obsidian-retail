@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { formatNaira } from "@/lib/utils";
 import { Link, Upload, Check, AlertCircle, Loader2, Plus, PenLine } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ProductCard } from "@/components/merchant/product-card";
 const Instagram = Link;
 
@@ -265,33 +266,55 @@ export default function IngestPage() {
 
       {/* Live results view */}
       {(scanning || done || products.length > 0) && (
-        <div className="flex flex-col gap-6 mt-8">
+        <div className="flex flex-col gap-8 mt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          
           {scanning && (
-            <div className="bg-white rounded-2xl border border-[#E8E0D4] p-5 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Loader2 size={16} className="animate-spin text-[#C4973A]" />
-                  <span className="text-sm font-medium text-[#1A1208]">
-                    {statusMsg || "Scanning..."}
-                  </span>
-                </div>
-                <span className="text-sm text-[#7A6E62]">
-                  {processed}/{total} products
-                </span>
-              </div>
-              <div className="h-1.5 bg-[#F5F0E8] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#1A1208] rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+            <div className="bg-[#1A1208] rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
+              {/* Background Glow */}
+              <div className="absolute top-0 right-0 w-64 h-64 bg-[#C4973A]/10 blur-[100px] -z-0" />
               
-              {screenshot && (
-                <div className="mt-4 rounded-xl overflow-hidden border border-[#E8E0D4] animate-in fade-in zoom-in-95 duration-500">
-                  <p className="text-[10px] font-bold text-[#7A6E62] bg-[#F5F0E8] px-3 py-1.5 uppercase tracking-wider">Live Capture</p>
-                  <img src={`data:image/jpeg;base64,${screenshot}`} alt="Scanning..." className="w-full h-auto max-h-64 object-cover" />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+                      <Loader2 size={24} className="animate-spin text-[#C4973A]" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white tracking-tight">Smart Ingestion</h3>
+                      <p className="text-xs text-[#7A6E62] uppercase tracking-widest font-black mt-0.5">
+                        {statusMsg || "Analyzing Catalog..."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-black text-white tracking-tighter">{progress}%</p>
+                    <p className="text-[10px] font-bold text-[#7A6E62] uppercase tracking-widest">{processed} of {total || "?"} items</p>
+                  </div>
                 </div>
-              )}
+
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-8">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${progress}%` }}
+                    className="h-full bg-gradient-to-r from-[#C4973A] to-[#E8D5B7] rounded-full shadow-[0_0_15px_rgba(196,151,58,0.5)]"
+                  />
+                </div>
+
+                {screenshot && (
+                  <div className="mt-8 rounded-2xl overflow-hidden border border-white/10 shadow-inner group relative">
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#1A1208] to-transparent opacity-60" />
+                    <div className="absolute bottom-4 left-4 flex items-center gap-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">Live Viewport</span>
+                    </div>
+                    <img 
+                      src={`data:image/jpeg;base64,${screenshot}`} 
+                      alt="Scanning..." 
+                      className="w-full h-auto max-h-80 object-cover filter brightness-75 group-hover:brightness-100 transition-all duration-700" 
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
